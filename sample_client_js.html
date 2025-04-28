@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload firmare to bot</title>
+  <style>
+    option:hover {
+      background-color: rgb(200 200 200);
+    }
+  </style>
+</head>
+<body>
+  <input id="pref" placeholder="Введите префикс бота для прошивки:" width=600px>
+  <button id="search-btn">Найти</button>
+  <p>Список ботов:</p>
+  <select id="bot-list"></select><br/>
+  <button id="connect-btn">Подключиться</button><br/>
+  <p></p>
+  <input id="mess" placeholder="Введите сообщение:" width=600px><br/>
+  <button id="send-btn">отправить</button>
+  <script>
+    var ws = NaN;
+    var connected = {}
+    
+    function start() {
+      ws = new WebSocket(`${location.protocol == 'https:' ? 'wss' : 'ws'}://${location.host}/wnet/ws`);
+      ws.onopen = function() {
+
+      };
+      ws.onmessage = function(event) {
+        let at1 = event.data.indexOf("@");
+        let com = event.data.substring(0, at1);
+        if(com == "list") {
+          let at2 = event.data.indexOf("@", at1+1);
+          let filt = event.data.substring(at1+1, at2);
+          let slist = event.data.substring(at2+1);
+          let list = slist.split("@");
+          bot_list.innerHTML = "";
+          for(let i = 0; i < list.length; i++) {
+            let option = document.createElement("option");
+            option.textContent = list[i];
+            option.setAttribute("id", "bot_"+list[i]);
+            option.style = "color: red;"
+            bot_list.append(option);
+          }
+          light_list();
+        } else if(com == "connectedto") {
+          let bot = event.data.substring(at1+1);
+          connected[bot] = true;
+          light_list();
+          let li_elem = document.querySelector("#bot_"+bot);
+          if(li_elem) {
+            li_elem.style = "color: green;";
+          }
+        } else if(com == "disconnectedfrom") {
+          let bot = event.data.substring(at1+1);
+          delete connected[bot];
+          light_list();
+          let li_elem = document.querySelector("#bot_"+bot);
+          if(li_elem) {
+            li_elem.style = "color: red;";
+          }
+        }
+      }
+      ws.onclose = function() {
+        connected = {};
+        bot_list.innerHTML = "";
+        bot_list.style = "color: red;";
+      }
+    }
+    function check() {
+      if(!ws || ws.readyState == 3) start();
+    }
+
+    start();
+
+    setInterval(check, 5000);
+    
+    let pref_inp = document.querySelector("#pref");
+    let search_btn = document.querySelector("#search-btn");
+    let bot_list = document.querySelector("#bot-list");
+    let connect_btn = document.querySelector("#connect-btn");
+    let mess_inp = document.querySelector("#mess");
+    let send_btn = document.querySelector("#send-btn");
+    
+    function light_list() {
+      if(connected[bot_list.value]) {
+        bot_list.style = "color: green;";
+      } else {
+        bot_list.style = "color: red;";
+      }
+    }
+    
+    search_btn.addEventListener('click', (e) => {
+      ws.send("search@"+pref_inp.value);
+    })
+    connect_btn.addEventListener('click', (e) => {
+      ws.send("connect@"+bot_list.value);
+    })
+    bot_list.addEventListener('change', (e) => {
+      light_list();
+    })
+    send_btn.addEventListener('click', (e) => {
+      if(connected[bot_list.value]) {
+        ws.send("cssend@"+bot_list.value+"@"+mess_inp.value);
+      }
+    })
+  </script>
+</body>
+</html>
